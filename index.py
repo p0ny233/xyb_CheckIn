@@ -1,23 +1,44 @@
+# -*- coding: utf8 -*-
 import requests
 import json
 import copy
 import hashlib
+import sys
+import codecs
+import random
+import time
+
+sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+
 
 class App():
     common = list()
+    urls = {
+        "getIp": "https://xcx.xybsyw.com/behavior/Duration!getIp.action",
+        # "getOpenId": "https://xcx.xybsyw.com/common/getOpenId.action",
+        "GetIsUnionId": "https://xcx.xybsyw.com/common/GetIsUnionId.action",
+        "getCityId": "https://xcx.xybsyw.com/common/loadLocation!getCityId.action",
+        # "Duration": "https://app.xybsyw.com/behavior/Duration.action",  # 心跳
+        # "verify": "https://xcx.xybsyw.com/sphere/sphereInfo!verify.action",
+        "get_traineeId": "https://xcx.xybsyw.com/student/clock/GetPlan!getDefault.action",
+        "GetPlan_detail": "https://xcx.xybsyw.com/student/clock/GetPlan!detail.action",
+        "login": "https://xcx.xybsyw.com/login/login.action",
+        # "checkAccount": "https://xcx.xybsyw.com/login/checkAccount.action",
+        "checkIn": "https://xcx.xybsyw.com/student/clock/Post.action",
+
+    }
 
     @classmethod
-    def handler_request(cls,reqObj, req_method, url, data=None):
+    def handler_request(cls, reqObj, req_method, url, data=None) -> object:
         """
-
-        :return: response
+        :return: response.json()
         """
         if "xcx.xybsyw" in url:
-            reqObj.header["Host"] = "xcx.xybsyw.com"
+            reqObj.headers["Host"] = "xcx.xybsyw.com"
         elif "app.xybsyw" in url:
-            reqObj.header["Host"] = "app.xybsyw.com"
+            reqObj.headers["Host"] = "app.xybsyw.com"
         elif "restapi.amap" in url:
-            reqObj.header["Host"] = "restapi.amap.com"
+            reqObj.headers["Host"] = "restapi.amap.com"
 
         if req_method == "get":
             return reqObj.get(url, params=data).json()
@@ -25,33 +46,25 @@ class App():
         if req_method == "post":
             return reqObj.post(url, data=data).json()
 
-    urls = {
-        "getIp": "https://xcx.xybsyw.com/behavior/Duration!getIp.action",
-        "getOpenId": "https://xcx.xybsyw.com/common/getOpenId.action",
-        "GetIsUnionId": "https://xcx.xybsyw.com/common/GetIsUnionId.action",
-        "getCityId": "https://xcx.xybsyw.com/common/loadLocation!getCityId.action",
-        "Duration": "https://app.xybsyw.com/behavior/Duration.action",  # 心跳
-        "verify": "https://xcx.xybsyw.com/sphere/sphereInfo!verify.action",
-        "get_traineeId": "https://xcx.xybsyw.com/student/clock/GetPlan!getDefault.action",
-        "GetPlan_detail": "https://xcx.xybsyw.com/student/clock/GetPlan!detail.action",
-        "login": "https://xcx.xybsyw.com/login/login.action",
-
-    }
-
-    def __init__(self,ip,userInfo=None, phoneInfo=None):
-
-        if userInfo["addressLocation"] == "":
-            raise Exception("必须先手动提取 目标地址的经纬度信息，访问 https://api.map.baidu.com/lbsapi/getpoint/index.html")
+    def __init__(self, userInfo=None, phoneInfo=None, sign=False):
+        """
+        :param userInfo: 个人信息、以及位置信息
+        :param phoneInfo: 移动设备型号相关信息
+        :param sign: 开启 巴法云 标志
+        """
+        if str(userInfo["addressLocation"]) == "":
+            try:
+                raise Addr("必须先手动提取 目标地址的经纬度信息，访问 https://api.map.baidu.com/lbsapi/getpoint/index.html 进行提取经纬度信息")
+            except Addr as e:
+                print(e.value)
 
         self.userInfo = userInfo
-
         self.s = requests.Session()
-        self.openId = ""
-        self.unionId = ""
+        self.openId = "ooru94oy6OWtK7Xsc2azPH2SI78A"
+        self.unionId = "oHY-uwcaYNyNd9Jlj_lDOHWkvlXU"
         self.traineeId = ""
-
+        self.userId = ""
         self.checkIn_info = dict()
-
         self.s.headers = {
             "Host": "",
             "Connection": "keep-alive",
@@ -63,14 +76,12 @@ class App():
 
         }
 
-
-        if phoneInfo is None:
+        if phoneInfo is None:  # user 有 设备信息
             self.system = self.userInfo["phoneInfo"]["system"]
             self.model = self.userInfo["phoneInfo"]["model"]
             self.netType = self.userInfo["netType"]
-            self.brand = self.userInfo["brand"]
-            self.platform = self.userInfo["platform"]
-
+            self.brand = self.userInfo["phoneInfo"]["brand"]
+            self.platform = self.userInfo["phoneInfo"]["platform"]
 
         else:
             self.system = phoneInfo["system"]
@@ -79,42 +90,31 @@ class App():
             self.brand = phoneInfo["brand"]
             self.platform = phoneInfo["platform"]
 
-        self.s.headers["User-Agent"] = "Mozilla/5.0 (Linux; "+ self.system +"; "+ self.model +" Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800103B) Process/appbrand0 WeChat/arm64 Weixin NetType/"+ self.netType +" Language/zh_CN ABI/arm64 MiniProgramEnv/android"
+        self.sign = sign
 
-
-
-
-
-
+        self.s.headers[
+            "User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800103B) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
 
     def getIp(self):
-        getIp_resp = App.handler_request(self.s,"post", App.urls["getIp"], {})
+        getIp_resp = App.handler_request(self.s, "post", App.urls["getIp"], {})
 
-        if getIp_resp["code"] == "200" and getIp_resp["msg"] == "success" and getIp_resp["data"]["ip"] != "" :
-            return ip
+        if getIp_resp["code"] == "200" and getIp_resp["msg"] == "success" and getIp_resp["data"]["ip"] != "":
+            ...
         else:
-            Exception
+            raise Exception("Get Real IP Error !\n")
 
-    def getUOid(self):
-        """
-        :return: (unionId, openId )
-        """
-        if self.openId == "":
-            getUOid_resp = App.handler_request(self.s,"post", App.urls["getOpenId"],{"code":"023FOWkl2NIhS84l3Skl2pIBJh4FOWkr"})
-
-        if getUOid_resp["code"] == "200" and dict(getUOid_resp["data"]).get("unionId") != None and dict(getUOid_resp["data"]).get("openId") != None:
-            return (dict(getUOid_resp["data"]).get("unionId"), dict(getUOid_resp["data"]).get("openId"))  # (unionId, openId )
-
-    def GetIsUnionId(self)->None:
+    def GetIsUnionId(self) -> None:
         """
         协议流程
         :return: None
         """
         if self.s.headers.get("cookie") == "":
 
-            GetIsUnionId_resp = App.handler_request(self.s, "post", App.urls["GetIsUnionId"], {"openId":self.openId,"unionId":""} )
+            GetIsUnionId_resp = App.handler_request(self.s, "post", App.urls["GetIsUnionId"],
+                                                    {"openId": self.openId, "unionId": ""})
         else:
-            GetIsUnionId_resp = App.handler_request(self.s, "post", App.urls["GetIsUnionId"], {"openId":self.openId,"unionId": self.unionId})
+            GetIsUnionId_resp = App.handler_request(self.s, "post", App.urls["GetIsUnionId"],
+                                                    {"openId": self.openId, "unionId": self.unionId})
 
         if GetIsUnionId_resp["code"] == "200" and dict(GetIsUnionId_resp["data"]).get("isUnionId") == True:
             ...
@@ -125,53 +125,36 @@ class App():
         """
         :return: getCityId
         """
-        getCityId_resp = App.handler_request(self.s, "post", App.urls["getCityId"], {"cityName": self.checkIn_info.get("city")} )
+        getCityId_resp = App.handler_request(self.s, "post", App.urls["getCityId"],
+                                             {"cityName": self.checkIn_info.get("city")})
         if getCityId_resp["code"] == "200" and getCityId_resp["msg"] == "操作成功":
-            self.checkIn_info["cityId"] = getCityId_resp["data"]
-
-        else:
-            raise Exception("Protocol is Failed !\n")
-
-
-
-    def GetLocationInfo(self):
-        """
-        :return: 坐标信息
-        """
-        params = {
-            "key":"c222383ff12d31b556c3ad6145bb95f4",
-            "location": self.userInfo["addressLocation"],
-            "extensions":"all",
-            "s":"rsx",
-            "platform":"WXJS",
-            "appname":"c222383ff12d31b556c3ad6145bb95f4",
-            "sdkversion":"1.2.0",
-            "logversion":"1.2.2.0"
-        }
-        GetLocationInfo_resp = App.handler_request(self.s, "get", "https://restapi.amap.com/v3/geocode/regeo", params)
-
-        if GetLocationInfo_resp["info"] == "OK" and GetLocationInfo_resp["infocode"] == "10000":
-            self.checkIn_info["city"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
-            self.checkIn_info["province"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["province"]
-            self.checkIn_info["adcode"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
-
-
-
-
-    def verify(self)->None:
-        """
-        协议流程
-        :return: None
-        """
-        verify_resp = App.handler_request(self.s, "post", App.urls["verify"], {"unionId": self.unionId,"code": "SIGN_IN",})
-
-        if verify_resp["data"] is True and verify_resp["msg"] == "success":
+            # self.checkIn_info["cityId"] = getCityId_resp["data"]
             ...
         else:
             raise Exception("Protocol is Failed !\n")
 
+    def GetAdcode(self) -> str:
+        """
+        :return: 坐标信息
+        """
+        params = {
+            "key": "c222383ff12d31b556c3ad6145bb95f4",
+            "location": self.userInfo["addressLocation"],
+            "extensions": "all",
+            "s": "rsx",
+            "platform": "WXJS",
+            "appname": "c222383ff12d31b556c3ad6145bb95f4",
+            "sdkversion": "1.2.0",
+            "logversion": "1.2.2.0"
+        }
+        GetLocationInfo_resp = App.handler_request(self.s, "get", "https://restapi.amap.com/v3/geocode/regeo", params)
 
-    def getTraineeId(self)->str:
+        if GetLocationInfo_resp["info"] == "OK" and GetLocationInfo_resp["infocode"] == "10000":
+            # self.checkIn_info["city"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
+            # self.checkIn_info["province"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["province"]
+            return GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
+
+    def getTraineeId(self) -> str:
         """
         :return: traineeId
         """
@@ -181,26 +164,75 @@ class App():
         else:
             raise Exception("获取实习任务ID失败")
 
+    def handler_checkIn_(self):
+        self.checkIn_info["model"] = self.model
+        self.checkIn_info["brand"] = self.brand
+        self.checkIn_info["platform"] = self.platform
+        self.checkIn_info["system"] = self.system
+        self.checkIn_info["openId"] = self.openId
+        self.checkIn_info["unionId"] = self.unionId
+        self.checkIn_info["traineeId"] = self.traineeId
+        self.checkIn_info["adcode"] = self.GetAdcode()
+        self.checkIn_info["lat"] = self.userInfo["addressLocation"].split(",")[1]
+        self.checkIn_info["lng"] = self.userInfo["addressLocation"].split(",")[0]
+        self.checkIn_info["address"] = self.userInfo["addressName"]
+        self.checkIn_info["deviceName"] = self.model
+        self.checkIn_info["punchInStatus"] = "0"
+        self.checkIn_info["clockStatus"] = "2"
+
+        checkIn_resp = App.handler_request(self.s, "post", App.urls["checkIn"], data=self.checkIn_info)
+        if checkIn_resp["code"] == "200" and checkIn_resp["msg"] == "success":
+            content = "签到成功"
+        else:
+            content = "签到失败"
+        headers = {
+            'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+        }
+        print(content)
+        if self.sign and self.userInfo["bemfa"] != "":
+            requests.get(
+                'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + self.userInfo[
+                    "bemfa"] + '&device=校友邦打卡&msg={}'.format(
+                    content), headers=headers)
+
+        sys.exit(0)
+
     def GetPlan_detail(self):
         """
-        获取 今日是否打卡相关信息
+        获取 打卡 状态
         :return:
         """
-        Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"], {"traineeId": self.traineeId})
+        Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"],
+                                               {"traineeId": self.traineeId})
 
         if Plan_detail_resp["code"] == "200" and Plan_detail_resp["msg"] == "操作成功":
-            if dict(Plan_detail_resp["data"]).get("clockInfo") is not None:
-                """
-                Plan_detail_resp["data"]).get("clockInfo") 存放 上次打卡的信息
-                """
+            if dict(Plan_detail_resp["data"]).get("clockInfo").get("inAddress") == "":
+                return self.handler_checkIn_()
 
+            else:
+                """已经打卡"""
+                content = "重复签到？"
+                headers = {
+                    'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+                }
+                print(content, self.sign)
+                if self.sign and self.userInfo["bemfa"] != "":
+                    requests.get(
+                        'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + self.userInfo[
+                            "bemfa"] + '&device=校友邦打卡&msg={}'.format(
+                            content), headers=headers)
 
+                sys.exit(0)
+
+        else:
+            raise Exception("Get Detail Msg Error !\n")
 
     def Login(self):
         m = hashlib.md5()
+        m.update(self.userInfo["pwd"].encode("utf-8"))
         LoginInfo = {
-            "username": m.update(self.userInfo["pwd"].encode("utf-8")),
-            "password": hashlib.md5(),
+            "username": self.userInfo["user"],
+            "password": m.hexdigest(),
             "openId": self.openId,
             "unionId": self.unionId,
             "model": self.model,
@@ -211,12 +243,20 @@ class App():
         }
         login_resp = App.handler_request(self.s, "post", App.urls["login"], LoginInfo)
         if login_resp["msg"] != "登录成功":
-            raise Exception( "Login Failed !")
+            content = "Login Failed !"
+            headers = {
+                'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+            }
+            if self.sign and self.userInfo["bemfa"] != "":
+                requests.get(
+                    'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + self.userInfo[
+                        "bemfa"] + '&device=校友邦打卡&msg={}'.format(
+                        content), headers=headers)
 
-        self.s.headers["cookie"] = login_resp["data"]["sessionId"]
+            raise Exception("Login Failed !")
 
-
-
+        self.s.headers["cookie"] = "JSESSIONID=" + login_resp["data"]["sessionId"]
+        self.userId = login_resp["data"]["loginerId"]
 
     def destory(self):
         """
@@ -226,41 +266,48 @@ class App():
         del self
 
 
+class Addr(Exception):
+    def __init__(self, value):
+        self.value = value
 
-if __name__ == '__main__':
+    def __str__(self):
+        return repr(self.value)
 
 
-    with open("UserInfo.json", encoding="utf-8") as fp:
+# 本地测试专用
+# if __name__ == '__main__':
+
+
+# 腾讯云函数专用
+def main_handler(event, context):
+    time.sleep(random.randint(10, 400))
+
+    # *************************  根据意愿 手动修改 ***************************
+    # 是否开启 巴法云 通知
+    # sign = True 表示 开启 巴法云 通知
+    # sign = False 表示 关闭 巴法云 通知
+    # 默认关闭 巴法云 通知
+    sign = True  # 开启巴法云，需要将 巴法云密钥  作为 user_info.json 文件中的 bemfa 的字段值 填入
+    # sign = False # 关闭
+    # ***********************************************************************
+
+    with open("user_info.json", encoding="utf-8") as fp:
         info = json.load(fp)
         if len(info) < 1:
             raise Exception("null")
         App.common = copy.deepcopy(info["users"])
 
-
-
     if len(App.common) > 0:
 
         for userInfo in App.common:
 
-            # 模式一：目前可方便到达实习的位置【推荐且默认】 将 mode 修改为 1 如：mode = 1
-            # 模式二：目前不方便到达实习的位置  将 mode 修改为 0 如：mode = 0
-            # mode = 0
-
-
-
-
-            ip = ""  # 获取IP方式建议 百度搜索 目标地址的IP，如 xxx市的ip
-            # ip : 实习地址的ip，保证目前人是在实习地址，注意网络环境，之前打卡是链接WIFI还是数据，如果是WIFI先链接WIFI然后浏览器访问网址 ip.sb，数据同理，获取到 拿到ip 即填写
-
-
-            # 申请签到打卡地区的经纬度，通过 https://api.map.baidu.com/lbsapi/getpoint/index.html 获取经纬度
-            # 如获取的 经纬度 113.398193,22.438461
-            # addressLocation = tuple(113.398193,22.438461)
-
-            if userInfo["phoneInfo"] == "":
-                app = App(ip, userInfo, info["phoneInfo"])
+            if userInfo["phoneInfo"]["model"] == "" and userInfo["phoneInfo"]["brand"] == "" and userInfo["phoneInfo"][
+                "platform"] == "":
+                app = App(userInfo, info["phoneInfo"], sign)
             else:
-                app = App(ip, userInfo)
-
-            app.unionId,app.openId = app.getUOid()
-
+                app = App(userInfo, phoneInfo=None, sign=sign)
+            app.getIp()
+            app.Login()
+            app.getTraineeId()
+            app.GetPlan_detail()
+            app.destory()
