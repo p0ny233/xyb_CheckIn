@@ -7,6 +7,10 @@ import sys
 import codecs
 import random
 import time
+import os
+import subprocess
+import platform
+import tempfile
 
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
@@ -96,6 +100,16 @@ class App():
             "User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800103B) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
 
     def getIp(self):
+        """
+        模式一：
+            1. 先切换成 正常签到的网络环境
+            2. 浏览器网址：https://ip38.com/
+            3. 将 您的本机IP地址：xxx.xxx.xxx.xx，中的 xxx.xxx.xxx.xx  写入 UserInfo.json 文件中的 clientIP 字段
+
+        模式二：百度搜索  目标地区的IP，任意 选，然后在 写入 UserInfo.json 文件中的 clientIP 字段
+        :return: IP
+
+        """
         getIp_resp = App.handler_request(self.s, "post", App.urls["getIp"], {})
 
         if getIp_resp["code"] == "200" and getIp_resp["msg"] == "success" and getIp_resp["data"]["ip"] != "":
@@ -185,6 +199,9 @@ class App():
             content = "签到成功"
         else:
             content = "签到失败"
+            with open("user_info.json", encoding="utf-8") as fp:
+                info = json.load(fp)
+                info["users"]["signInture"] == 0
         headers = {
             'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
         }
@@ -195,13 +212,14 @@ class App():
                     "bemfa"] + '&device=校友邦打卡&msg={}'.format(
                     content), headers=headers)
 
-        sys.exit(0)
+        return (1, True)
 
     def GetPlan_detail(self):
         """
         获取 打卡 状态
         :return:
         """
+
         Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"],
                                                {"traineeId": self.traineeId})
 
@@ -212,6 +230,11 @@ class App():
             else:
                 """已经打卡"""
                 content = "重复签到？"
+                date = dict(Plan_detail_resp["data"]).get("clockInfo").get("date").replace(".", "-")
+                inTime = dict(Plan_detail_resp["data"]).get("clockInfo").get("inTime").replace(".", ":")
+                date = date + " " + inTime
+                inTime = int(time.mktime(time.strptime(date, "%Y-%m-%d %H:%M:%S")))
+
                 headers = {
                     'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
                 }
@@ -222,7 +245,10 @@ class App():
                             "bemfa"] + '&device=校友邦打卡&msg={}'.format(
                             content), headers=headers)
 
-                sys.exit(0)
+            if content == "签到失败":
+                return (0, None)
+            else:
+                return (2, inTime)
 
         else:
             raise Exception("Get Detail Msg Error !\n")
@@ -274,12 +300,8 @@ class Addr(Exception):
         return repr(self.value)
 
 
-# 本地测试专用
-# if __name__ == '__main__':
-
-
 # 腾讯云函数专用
-def main_handler(event, context):
+def main_handler(event=None, context=None):
     time.sleep(random.randint(10, 400))
 
     # *************************  根据意愿 手动修改 ***************************
@@ -290,24 +312,88 @@ def main_handler(event, context):
     sign = True  # 开启巴法云，需要将 巴法云密钥  作为 user_info.json 文件中的 bemfa 的字段值 填入
     # sign = False # 关闭
     # ***********************************************************************
+    # print(os.getcwd() + "\\user_info.json")
+    print(os.path.dirname(__file__))
 
-    with open("user_info.json", encoding="utf-8") as fp:
+    TempFilePath = None
+    i = None
+    if platform.system() == "Windows":
+        if not os.path.exists(os.path.dirname(__file__) + "/user_info.json"):
+            print("User JSON FIle Is not exists")
+            return False
+        i, TempFilePath = tempfile.mkstemp(prefix="xyb_check_", suffix=".json")
+
+    elif platform.system() == "Linux":
+
+        TempFilePath = os.getcwd() + "/.user_info.json"
+        cmd_args = ["cp", "-r", "-f", os.getcwd() + "/user_info.json", TempFilePath]
+        if subprocess.call(cmd_args, shell=False):
+            raise Exception("{} 执行失败".format(cmd_args))
+    else:
+        raise Exception("Unkown Operating system")
+
+    # generate time file
+    with open(os.getcwd() + "/user_info.json", "r+", encoding="utf-8") as fp, open(TempFilePath, "r+",
+                                                                                   encoding="utf-8") as f:
         info = json.load(fp)
+        f.write(json.dumps(info))
+
+    with open(os.getcwd() + "/user_info.json", "w+") as fp:
+        print(fp.read())
+        fp.seek(0)
         if len(info) < 1:
             raise Exception("null")
-        App.common = copy.deepcopy(info["users"])
+        # App.common = copy.deepcopy(info["users"])
+        App.common = info["users"]
 
-    if len(App.common) > 0:
+        if len(App.common) > 0:
 
-        for userInfo in App.common:
+            for _, userInfo in enumerate(App.common):
 
-            if userInfo["phoneInfo"]["model"] == "" and userInfo["phoneInfo"]["brand"] == "" and userInfo["phoneInfo"][
-                "platform"] == "":
-                app = App(userInfo, info["phoneInfo"], sign)
-            else:
-                app = App(userInfo, phoneInfo=None, sign=sign)
-            app.getIp()
-            app.Login()
-            app.getTraineeId()
-            app.GetPlan_detail()
-            app.destory()
+                if int(time.time()) - int(userInfo["signInture"]) < 82800:
+                    if os.path.exists(TempFilePath):
+                        if i:
+                            os.close(i)
+
+                        # 兼容 Windows
+                        fp.write(json.dumps(info))
+                        os.remove(TempFilePath)
+                    return True
+
+                if userInfo["phoneInfo"]["model"] == "" and userInfo["phoneInfo"]["brand"] == "" and \
+                        userInfo["phoneInfo"][
+                            "platform"] == "":
+                    app = App(userInfo, info["phoneInfo"], sign)
+                else:
+                    app = App(userInfo, phoneInfo=None, sign=sign)
+                app.getIp()
+                app.Login()
+                app.getTraineeId()
+                signInflag, Boo_ = app.GetPlan_detail()
+
+                print("signInflag:>>", signInflag)
+                if signInflag == 1:
+                    print("Success")
+                    print(info["users"][_]["signInture"])
+
+                    info["users"][_]["signInture"] = int(time.time())
+                    print(info["users"][_]["signInture"])
+                elif signInflag == 2:
+                    info["users"][_]["signInture"] = Boo_
+                else:
+                    info["users"][_]["signInture"] == 0
+
+        print(info)
+        print("JSON\n")
+        print(json.dumps(info))
+        fp.write(json.dumps(info))
+    if i:
+        os.close(i)
+    os.remove(TempFilePath)
+    return signInflag
+
+
+# 本地测试专用 放开 以下注释 可在 win以及Linux终端上进行测试
+# if __name__ == '__main__':
+#     main_handler()
+
