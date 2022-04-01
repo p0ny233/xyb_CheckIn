@@ -15,7 +15,10 @@
             "platform": "android",  // 可选（可留空），若 以上可选项都是空，那么移动设备信息默认使用 phoneInfo对象中的信息 
             "system": "Android 7.1.1"  // 可选（可留空），要填写就按实际情况
         },
-        "bemfa":"巴法云密钥"
+        "bemfa":"巴法云密钥",
+        "CheckInNotice": true,  // 是否开启 巴法云通知，true为 开启，false 为关闭
+        "signInture": 0  // 此字段值无需改动
+        // 打卡时间点，该字段记录第一次打卡的时间点，是否改变取决于 user_info.json 文件是否 可写
       }
     ],
   "phoneInfo": {
@@ -47,7 +50,9 @@
             "platform": "",
             "system": ""
         },
-        "bemfa":"f5d361a74585...45856"
+        "bemfa":"f5d361a74585...45856" // 巴法云密钥
+        "CheckInNotice": true,  // 开启 巴法云通知
+        "signInture": "2022-03-28 09:01:33"
       }
     ],
   "phoneInfo": {

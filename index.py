@@ -1,22 +1,23 @@
 # -*- coding: utf8 -*-
 import requests
 import json
-import copy
 import hashlib
 import sys
 import codecs
 import random
 import time
 import os
-import subprocess
-import platform
-import tempfile
 
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+
+mode1 = 1
+
+mode2 = 2
 
 
 class App():
     common = list()
+
     urls = {
         "getIp": "https://xcx.xybsyw.com/behavior/Duration!getIp.action",
         # "getOpenId": "https://xcx.xybsyw.com/common/getOpenId.action",
@@ -31,6 +32,24 @@ class App():
         "checkIn": "https://xcx.xybsyw.com/student/clock/Post.action",
 
     }
+
+    @classmethod
+    def handler_Notice(cls, secKey, note=None, UA=None) -> None:
+        """
+        :param secKey: 巴法云密钥
+        :param note: msg content
+        :return: None
+        """
+        if not secKey:
+            raise Exception("Make sure user conf is Corrected")
+
+        header = {
+            "user-agent": UA
+        }
+
+        url = 'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + secKey + '&device=校友邦打卡&msg={}'.format(
+            note)
+        requests.get(url=url, headers=header)
 
     @classmethod
     def handler_request(cls, reqObj, req_method, url, data=None) -> object:
@@ -72,13 +91,14 @@ class App():
         self.s.headers = {
             "Host": "",
             "Connection": "keep-alive",
-            "User-Agent": "",
             "cookie": "",
             "charset": "utf-8",
             "Accept-Encoding": "gzip,compress,br,deflate",
             "content-type": "application/x-www-form-urlencoded"
 
         }
+
+        self.s.headers.update()
 
         if phoneInfo is None:  # user 有 设备信息
             self.system = self.userInfo["phoneInfo"]["system"]
@@ -102,13 +122,12 @@ class App():
     def getIp(self):
         """
         模式一：
-            1. 先切换成 正常签到的网络环境
+            1. 手机先切换成 按照之前正常打卡时的网络环境
             2. 浏览器网址：https://ip38.com/
             3. 将 您的本机IP地址：xxx.xxx.xxx.xx，中的 xxx.xxx.xxx.xx  写入 UserInfo.json 文件中的 clientIP 字段
 
-        模式二：百度搜索  目标地区的IP，任意 选，然后在 写入 UserInfo.json 文件中的 clientIP 字段
+        模式二：百度搜索  目标地区的IP如：广州IP，任意 选，然后在 写入 UserInfo.json 文件中的 clientIP 字段
         :return: IP
-
         """
         getIp_resp = App.handler_request(self.s, "post", App.urls["getIp"], {})
 
@@ -161,7 +180,8 @@ class App():
             "sdkversion": "1.2.0",
             "logversion": "1.2.2.0"
         }
-        GetLocationInfo_resp = App.handler_request(self.s, "get", "https://restapi.amap.com/v3/geocode/regeo", params)
+        GetLocationInfo_resp = App.handler_request(self.s, "get", "https://restapi.amap.com/v3/geocode/regeo",
+                                                   params)
 
         if GetLocationInfo_resp["info"] == "OK" and GetLocationInfo_resp["infocode"] == "10000":
             # self.checkIn_info["city"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
@@ -178,7 +198,10 @@ class App():
         else:
             raise Exception("获取实习任务ID失败")
 
-    def handler_checkIn_(self):
+    def handler_checkIn_(self) -> tuple:
+        """
+        :return: (bool, String)
+        """
         self.checkIn_info["model"] = self.model
         self.checkIn_info["brand"] = self.brand
         self.checkIn_info["platform"] = self.platform
@@ -196,62 +219,57 @@ class App():
 
         checkIn_resp = App.handler_request(self.s, "post", App.urls["checkIn"], data=self.checkIn_info)
         if checkIn_resp["code"] == "200" and checkIn_resp["msg"] == "success":
-            content = "签到成功"
+            Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"],
+                                                   {"traineeId": self.traineeId})
+
+            YYMMDD = dict(Plan_detail_resp["data"]).get("clockInfo").get("date").replace(".", "-")
+            HHMMSS = dict(Plan_detail_resp["data"]).get("clockInfo").get("inTime").replace(".", ":")
+            date = YYMMDD + " " + HHMMSS
+            note = "于 " + date + " 签到成功"
+            signInture = (True, note, date, 1)
         else:
-            content = "签到失败"
-            with open("user_info.json", encoding="utf-8") as fp:
-                info = json.load(fp)
-                info["users"]["signInture"] == 0
-        headers = {
-            'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
-        }
-        print(content)
-        if self.sign and self.userInfo["bemfa"] != "":
-            requests.get(
-                'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + self.userInfo[
-                    "bemfa"] + '&device=校友邦打卡&msg={}'.format(
-                    content), headers=headers)
+            note = "签到失败"
+            signInture = (False, note, None, 0)
+            # with open("user_info.json", encoding="utf-8") as fp:
+            #     info = json.load(fp)
+            #     info["users"]["signInture"] == 0
+        return signInture
 
-        return (1, True)
-
-    def GetPlan_detail(self):
+    def GetPlan_detail(self) -> tuple:
         """
         获取 打卡 状态
         :return:
         """
-
+        note = "获取打卡状态失败"
+        Inture = None
+        writeable = None
         Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"],
                                                {"traineeId": self.traineeId})
-
         if Plan_detail_resp["code"] == "200" and Plan_detail_resp["msg"] == "操作成功":
-            if dict(Plan_detail_resp["data"]).get("clockInfo").get("inAddress") == "":
-                return self.handler_checkIn_()
-
+            if dict(Plan_detail_resp["data"]).get("clockInfo").get("inAddress") == "" or dict(
+                    Plan_detail_resp["data"]).get("clockInfo").get("inTime") == "":
+                Inture, note, date, writeable = self.handler_checkIn_()
             else:
-                """已经打卡"""
-                content = "重复签到？"
+                """已经打过卡"""
+                Inture = True
                 date = dict(Plan_detail_resp["data"]).get("clockInfo").get("date").replace(".", "-")
                 inTime = dict(Plan_detail_resp["data"]).get("clockInfo").get("inTime").replace(".", ":")
                 date = date + " " + inTime
-                inTime = int(time.mktime(time.strptime(date, "%Y-%m-%d %H:%M:%S")))
+                note = "重复签到？ 在" + date + " 时 已经签到"
 
-                headers = {
-                    'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
-                }
-                print(content, self.sign)
-                if self.sign and self.userInfo["bemfa"] != "":
-                    requests.get(
-                        'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + self.userInfo[
-                            "bemfa"] + '&device=校友邦打卡&msg={}'.format(
-                            content), headers=headers)
-
-            if content == "签到失败":
-                return (0, None)
-            else:
-                return (2, inTime)
+            if self.sign and self.userInfo["bemfa"] != "":
+                App.handler_Notice(self.userInfo["bemfa"], note, self.s.headers["User-Agent"])
+                print(note, self.sign)
+                print("CheckIn Flag > " + str(Inture))
+                print("\nnote Flag > " + note)
 
         else:
+            if self.sign and self.userInfo["bemfa"] != "":
+                App.handler_Notice(self.userInfo["bemfa"], note, self.s.headers["User-Agent"])
+
             raise Exception("Get Detail Msg Error !\n")
+
+        return (Inture, date, writeable)
 
     def Login(self):
         m = hashlib.md5()
@@ -270,15 +288,8 @@ class App():
         login_resp = App.handler_request(self.s, "post", App.urls["login"], LoginInfo)
         if login_resp["msg"] != "登录成功":
             content = "Login Failed !"
-            headers = {
-                'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
-            }
             if self.sign and self.userInfo["bemfa"] != "":
-                requests.get(
-                    'http://api.bemfa.com/api/wechat/v1/weget.php?type=2&uid=' + self.userInfo[
-                        "bemfa"] + '&device=校友邦打卡&msg={}'.format(
-                        content), headers=headers)
-
+                App.handler_Notice(self.userInfo["bemfa"], content, self.s.headers["User-Agent"])
             raise Exception("Login Failed !")
 
         self.s.headers["cookie"] = "JSESSIONID=" + login_resp["data"]["sessionId"]
@@ -300,100 +311,121 @@ class Addr(Exception):
         return repr(self.value)
 
 
-# 腾讯云函数专用
-def main_handler(event=None, context=None):
-    time.sleep(random.randint(10, 400))
+def SelectCheckInMode(userconfpath):
+    """
+    mode1: no status CheckIn
+    mode2: Remember last inTime
+    :return: mode1 or mode2
+    """
+    return mode2 if os.access(userconfpath, os.W_OK) else mode1
 
-    # *************************  根据意愿 手动修改 ***************************
-    # 是否开启 巴法云 通知
-    # sign = True 表示 开启 巴法云 通知
-    # sign = False 表示 关闭 巴法云 通知
-    # 默认关闭 巴法云 通知
-    sign = True  # 开启巴法云，需要将 巴法云密钥  作为 user_info.json 文件中的 bemfa 的字段值 填入
-    # sign = False # 关闭
-    # ***********************************************************************
-    # print(os.getcwd() + "\\user_info.json")
-    print(os.path.dirname(__file__))
 
-    TempFilePath = None
-    i = None
-    if platform.system() == "Windows":
-        if not os.path.exists(os.path.dirname(__file__) + "/user_info.json"):
-            print("User JSON FIle Is not exists")
-            return False
-        i, TempFilePath = tempfile.mkstemp(prefix="xyb_check_", suffix=".json")
-
-    elif platform.system() == "Linux":
-
-        TempFilePath = os.getcwd() + "/.user_info.json"
-        cmd_args = ["cp", "-r", "-f", os.getcwd() + "/user_info.json", TempFilePath]
-        if subprocess.call(cmd_args, shell=False):
-            raise Exception("{} 执行失败".format(cmd_args))
-    else:
-        raise Exception("Unkown Operating system")
-
-    # generate time file
-    with open(os.getcwd() + "/user_info.json", "r+", encoding="utf-8") as fp, open(TempFilePath, "r+",
-                                                                                   encoding="utf-8") as f:
+def NoStatCheckIn(UserConfPath, mode) -> bool:
+    """
+    :param UserConfPath: user conf json path
+    :param mode: Read-Only
+    :return:
+    """
+    with open(UserConfPath, mode, encoding="utf-8") as fp:
         info = json.load(fp)
-        f.write(json.dumps(info))
-
-    with open(os.getcwd() + "/user_info.json", "w+") as fp:
-        print(fp.read())
-        fp.seek(0)
         if len(info) < 1:
             raise Exception("null")
         # App.common = copy.deepcopy(info["users"])
         App.common = info["users"]
-
         if len(App.common) > 0:
-
             for _, userInfo in enumerate(App.common):
-
-                if int(time.time()) - int(userInfo["signInture"]) < 82800:
-                    if os.path.exists(TempFilePath):
-                        if i:
-                            os.close(i)
-
-                        # 兼容 Windows
-                        fp.write(json.dumps(info))
-                        os.remove(TempFilePath)
-                    return True
 
                 if userInfo["phoneInfo"]["model"] == "" and userInfo["phoneInfo"]["brand"] == "" and \
                         userInfo["phoneInfo"][
                             "platform"] == "":
-                    app = App(userInfo, info["phoneInfo"], sign)
+                    app = App(userInfo, info["phoneInfo"], userInfo["CheckInNotice"])
                 else:
-                    app = App(userInfo, phoneInfo=None, sign=sign)
+                    app = App(userInfo, phoneInfo=None, sign=userInfo["CheckInNotice"])
+
                 app.getIp()
                 app.Login()
                 app.getTraineeId()
-                signInflag, Boo_ = app.GetPlan_detail()
+                return app.GetPlan_detail()[0]
 
-                print("signInflag:>>", signInflag)
-                if signInflag == 1:
-                    print("Success")
-                    print(info["users"][_]["signInture"])
 
-                    info["users"][_]["signInture"] = int(time.time())
-                    print(info["users"][_]["signInture"])
-                elif signInflag == 2:
-                    info["users"][_]["signInture"] = Boo_
+def StatCheckIn(UserConfPath, mode="r+", uname="win32") -> bool:
+    """
+    :param UserConfPath: user conf json path
+    :param mode: Read And Write
+    :param uname: OS system name
+    :return:
+    """
+    # if uname.startswith("win32"):
+    #     _,TempFilePath = tempfile.mkstemp(prefix="xyb_check_", suffix=".json")
+    # elif uname.startswith("Linux"):
+    #     TempFilePath = "./." + UserConfPath
+    #     cmd_args = ["cp","-r","-f",UserConfPath,TempFilePath]
+    #     subprocess.call(cmd_args,shell=False)
+    fix_count = 0
+    with open(UserConfPath, mode, encoding="utf-8") as fp:
+        info = json.load(fp)
+        if len(info) < 2:
+            raise Exception("null")
+        # App.common = copy.deepcopy(info["users"])
+        App.common = info.get("users")
+        if len(App.common) > 0:
+            for _, userInfo in enumerate(App.common):
+                timestamp = int(time.mktime(time.strptime(info.get("users")[_]["signInture"], "%Y-%m-%d %H:%M:%S")))
+
+                print(info.get("users")[_]["signInture"] + " >>>>>>  " + timestamp)
+                if not int(time.time()) - timestamp > 86300:
+                    continue
+                if userInfo["phoneInfo"]["model"] == "" and userInfo["phoneInfo"]["brand"] == "" and \
+                        userInfo["phoneInfo"][
+                            "platform"] == "":
+                    app = App(userInfo, info["phoneInfo"], userInfo["CheckInNotice"])
                 else:
-                    info["users"][_]["signInture"] == 0
+                    app = App(userInfo, phoneInfo=None, sign=userInfo["CheckInNotice"])
+                app.getIp()
+                app.Login()
+                app.getTraineeId()
+                signInflag, date, writeable = app.GetPlan_detail()
+                # (bool, "2022")
+                if writeable:
+                    fix_count += 1
+                    info.get("users")[_]["signInture"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(date))
 
-        print(info)
-        print("JSON\n")
-        print(json.dumps(info))
-        fp.write(json.dumps(info))
-    if i:
-        os.close(i)
-    os.remove(TempFilePath)
-    return signInflag
+            if fix_count > 0:
+                fp.seek(0, 0)
+                fp.truncate()
+                fp.write(json.dumps(info))
+
+            return signInflag
+
+        else:
+            print("No User")
+
+
+# 腾讯云函数专用
+def main_handler(event=None, context=None):
+    time.sleep(random.randint(10, 400))
+
+    # print(os.path.dirname(__file__))  # F:/DeskTop/xyb_CheckIn
+
+    UserConfPath = os.getcwd() + "/user_info.json"  # 'F:\\DeskTop\\xyb_CheckIn/user_info.json'
+
+    if not os.path.exists(UserConfPath):
+        print("User JSON FIle Is not exists")
+        return False
+
+    if SelectCheckInMode(UserConfPath) == mode1:
+        """
+        no status mode1
+        """
+        return NoStatCheckIn(UserConfPath, "r")
+
+    elif SelectCheckInMode(UserConfPath) == mode2:
+        """
+        Remember last inTime
+        """
+        StatCheckIn(UserConfPath, "r+", "win32")
 
 
 # 本地测试专用 放开 以下注释 可在 win以及Linux终端上进行测试
-# if __name__ == '__main__':
-#     main_handler()
-
+if __name__ == '__main__':
+    main_handler()
