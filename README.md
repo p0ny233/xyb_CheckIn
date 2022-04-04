@@ -3,22 +3,22 @@
 
     "users":[
       {
-        "user": "账号也就是手机号", 
-        "pwd": "密码",
-        "netType": "WIFI或者流量（按照之前正常打卡时的网络环境）",
-        "clientIP": "切换成常用的网络环境然后访问  https://ip38.com/ ",
-        "addressLocation": "实习地址的经纬度信息 https://api.map.baidu.com/lbsapi/getpoint/index.html",
-        "addressName": "xxxx园xxxx栋",
+        "user": "账号也就是手机号",   // 必填
+        "pwd": "密码",  // 必填
+        "netType": "WIFI或者流量（按照之前正常打卡时的网络环境）",  // 必填
+        "clientIP": "切换成常用的网络环境然后访问  https://cip.cc/ ",  // 必填
+        "addressLocation": "实习地址的经纬度信息 https://api.map.baidu.com/lbsapi/getpoint/index.html",  // 当前版本必填，下一个发布版 自动获取签到地址
+        "addressName": "xxxx园xxxx栋",  // 当前版本必填，下一个发布版 自动获取签到地址
         "phoneInfo": {
             "model": "MI MAX 2",  // 可选（可留空）
             "brand": "Xiaomi",    // 可选（可留空）
             "platform": "android",  // 可选（可留空），若 以上可选项都是空，那么移动设备信息默认使用 phoneInfo对象中的信息 
             "system": "Android 7.1.1"  // 可选（可留空），要填写就按实际情况
         },
-        "bemfa":"巴法云密钥",
-        "CheckInNotice": true,  // 是否开启 巴法云通知，true为 开启，false 为关闭
+        "bemfa":"巴法云密钥", // 可选（可留空）
+        "CheckInNotice": true, // 可选（可留空） // 是否开启 巴法云通知，true为 开启，false 为关闭
         "signInture": 0  // 此字段值无需改动
-        // 打卡时间点，该字段记录第一次打卡的时间点，是否改变取决于 user_info.json 文件是否 可写
+        // 打卡时间点，该字段记录第一次打卡的时间点，是否改变取决于 user_info.json 文件是否拥有 可写权限
       }
     ],
   "phoneInfo": {
@@ -35,7 +35,6 @@
 
 ```json
 {
-    "bemfa":"f5d361a74585...45856",  // 巴法云密钥
     "users":[
       {
         "user": "13800138000",  // 账号
@@ -52,7 +51,7 @@
         },
         "bemfa":"f5d361a74585...45856" // 巴法云密钥
         "CheckInNotice": true,  // 开启 巴法云通知
-        "signInture": "2022-03-28 09:01:33"
+        "signInture": 0
       }
     ],
   "phoneInfo": {
