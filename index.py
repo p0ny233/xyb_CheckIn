@@ -228,7 +228,7 @@ class App():
         getIp_resp = App.handler_request(self.s, "post", App.urls["getIp"], {})
 
         if getIp_resp["code"] == "200" and getIp_resp["msg"] == "success" and getIp_resp["data"]["ip"] != "":
-            ...
+            pass
         else:
             raise Exception("Get Real IP Error !\n")
 
@@ -246,7 +246,7 @@ class App():
                                                     {"openId": self.openId, "unionId": self.unionId})
 
         if GetIsUnionId_resp["code"] == "200" and dict(GetIsUnionId_resp["data"]).get("isUnionId") == True:
-            ...
+            pass
         else:
             raise Exception("Protocol is Failed !\n")
 
@@ -258,7 +258,7 @@ class App():
                                              {"cityName": self.checkIn_info.get("city")})
         if getCityId_resp["code"] == "200" and getCityId_resp["msg"] == "操作成功":
             # self.checkIn_info["cityId"] = getCityId_resp["data"]
-            ...
+            pass
         else:
             raise Exception("Protocol is Failed !\n")
 
@@ -518,7 +518,7 @@ def main_handler(event=None, context=None):
         """
         云函数
         """
-        ...
+        pass
     else:
         """
         不在云函数的Linux
