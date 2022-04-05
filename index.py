@@ -1,4 +1,7 @@
 # -*- coding: utf8 -*-
+# Author：p0ny
+# Date ：2022-04-04 23:46
+# Tool ：PyCharm
 import requests
 import json
 import hashlib
@@ -35,7 +38,10 @@ class App():
         # "checkAccount": "https://xcx.xybsyw.com/login/checkAccount.action",
         "checkIn": "https://xcx.xybsyw.com/student/clock/Post.action",
         "getIpAddr": "https://sp1.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=ipv4&co=&resource_id=5809&t=" + str(
-            int(time.time() * 1000)) + "&ie=utf8&oe=gbk&cb=op_aladdin_callback&format=json&tn=baidu"
+            int(time.time() * 1000)) + "&ie=utf8&oe=gbk&cb=op_aladdin_callback&format=json&tn=baidu",
+        "getProjectList": "https://xcx.xybsyw.com/student/progress/ProjectList.action",
+        "LoadProjects": "https://xcx.xybsyw.com/student/practiceplan/independent/LoadProjects.action",
+        "LoadSummaryPostById": "https://xcx.xybsyw.com/student/practiceplan/independent/LoadSummaryPostById.action"
 
     }
 
@@ -104,18 +110,20 @@ class App():
 
     @classmethod
     def print_user_base_info(cls, _, userInfo: dict, mode: str) -> None:
-        App.App_Log(
-            ("+" * 30) + "\t正在进行第 【" + str(_ + 1) + "】 位用户 " + str("有状态  打卡\t" + ("+" * 30)) if mode == "r+" else str(
-                "无" + "状态  打卡\t" + ("+" * 30)))
-        App.App_Log("用户: " + userInfo["user"] + "  running...")
-        App.App_Log("该用户基本配置信息如下：")
-        App.App_Log("\t用户IP: " + userInfo["clientIP"])
-        App.App_Log("\t用户IP归属地: " + App.getIpAddr(userInfo["clientIP"]))
-        App.App_Log("\t用户打卡网络环境: " + userInfo["netType"])
-        App.App_Log("\t用户打卡签到经纬度: " + userInfo["addressLocation"])
-        App.App_Log("\t用户打卡签到地址: " + userInfo["addressName"])
-        App.App_Log("\t用户是否开启巴法云通知: " + "是" if userInfo["CheckInNotice"] else "否")
-        App.App_Log("\t用户巴法云通知是否正常: " + "是 \t 该字段仅供参考" if len(userInfo["bemfa"]) == 32 else "否 \t 该字段仅供参考")
+        try:
+            App.App_Log(
+                ("+" * 30) + "\t正在进行第 【" + str(_ + 1) + "】 位用户 " + ("有" if mode == "r+" else "无") + "状态打卡\t" + (
+                        "+" * 30))
+            App.App_Log("用户: " + userInfo["user"] + "  running...")
+            App.App_Log("该用户基本配置信息如下：")
+            App.App_Log("\t用户IP: " + userInfo["clientIP"])
+            App.App_Log("\t用户IP归属地: " + App.getIpAddr(userInfo["clientIP"]))
+            App.App_Log("\t用户打卡网络环境: " + userInfo["netType"])
+            App.App_Log("\t用户是否开启巴法云通知: " + ("是" if userInfo["CheckInNotice"] else "否"))
+            App.App_Log("\t用户巴法云通知是否正常: " + str("是" if len(userInfo["bemfa"]) == 32 else "否") + "\t 该字段仅供参考")
+
+        except KeyError:
+            raise Exception("user_info.json 用户配置信息文件有误, 请检查...")
 
     def __init__(self, userInfo=None, phoneInfo=None, sign=False):
         """
@@ -123,11 +131,14 @@ class App():
         :param phoneInfo: 移动设备型号相关信息
         :param sign: 开启 巴法云 标志
         """
-        if str(userInfo["addressLocation"]) == "":
-            try:
-                raise Addr("必须先手动提取 目标地址的经纬度信息，访问 https://api.map.baidu.com/lbsapi/getpoint/index.html 进行提取经纬度信息")
-            except Addr as e:
-                print(e.value)
+
+        #
+        # if str(userInfo["addressLocation"]) == "":
+        #     try:
+        #         raise Addr("必须先手动提取 目标地址的经纬度信息，访问 https://api.map.baidu.com/lbsapi/getpoint/index.html 进行提取经纬度信息")
+        #     except Addr as e:
+        #         print(e.value)
+        # 已经更新 为 自动提取 经纬度信息
 
         self.userInfo = userInfo
         self.s = requests.Session()
@@ -143,10 +154,7 @@ class App():
             "charset": "utf-8",
             "Accept-Encoding": "gzip,compress,br,deflate",
             "content-type": "application/x-www-form-urlencoded"
-
         }
-
-        self.s.headers.update()
 
         if phoneInfo is None:  # user 有 设备信息
             self.system = self.userInfo["phoneInfo"]["system"]
@@ -167,22 +175,54 @@ class App():
         self.s.headers[
             "User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800103B) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
 
-    # TODO 自动获取 填写岗位信息时选择的签到的地址的 location
-    def AutoGetCheckInLocation(self) -> tuple:
+    def AutoGetCheckInLocation(self) -> None:
         """
-        修复 签到坐标位置不精确 问题
+        修复 手动获取签到坐标位置不精确 问题
         :return:
         """
-        pass
+        getProjectList_resp = App.handler_request(self.s, "post", App.urls["getProjectList"], data={})
+        if getProjectList_resp["code"] != "200" or getProjectList_resp["msg"] != "获取列表成功":
+            raise Exception("Auto Get Location Is Failed")
+        else:
+            self.planId = getProjectList_resp["data"][0]["planId"]
+            self.projectId = getProjectList_resp["data"][0]["projectList"][0]["projectId"]
+            # if DEBUG:
+            #     App.App_Log("self.planId : " + str(self.planId),"self.projectId : " + str(self.projectId))
+            if not self.planId:
+                raise Exception("get planId is failed...")
+
+            getSummaryId_resp = App.handler_request(self.s, "post", App.urls["LoadProjects"],
+                                                    data={"planId": self.planId})
+            if getSummaryId_resp["code"] != "200" and getSummaryId_resp["msg"] != "获取列表成功":
+                raise Exception("get SummaryId is failed...")
+            self.summaryId = getSummaryId_resp["data"][0]["summaryId"]
+
+            if not self.summaryId:
+                raise Exception("summaryId is none! ")
+            AutoGetCheckInLocation_resp = App.handler_request(self.s, "post", App.urls["LoadSummaryPostById"],
+                                                              data={"summaryPostId": self.summaryId})
+            if AutoGetCheckInLocation_resp["code"] != "200" and AutoGetCheckInLocation_resp["msg"] != "获取列表成功":
+                raise Exception("Get lng and Get lat is error ! ")
+            # 经度
+            self.longitude = str(AutoGetCheckInLocation_resp["data"]["longitude"]) + "00"
+            # 纬度
+            self.latitude = str(AutoGetCheckInLocation_resp["data"]["latitude"]) + "00"
+            # 街道
+            self.street = AutoGetCheckInLocation_resp["data"]["street"]
+            if DEBUG:
+                App.App_Log("\t用户打卡签到经纬度: " + self.longitude + ", " + self.latitude)
+                App.App_Log("\t用户打卡签到地址: " + self.street)
+
+            return None
 
     def getIp(self):
         """
         模式一：
             1. 手机先切换成 按照之前正常打卡时的网络环境
-            2. 浏览器网址：https://ip38.com/
-            3. 将 您的本机IP地址：xxx.xxx.xxx.xx，中的 xxx.xxx.xxx.xx  写入 UserInfo.json 文件中的 clientIP 字段
+            2. 浏览器网址：https://cip.cc.com/
+            3. 将 您的本机IP地址：xxx.xxx.xxx.xx，中的 xxx.xxx.xxx.xx  写入 user_info.json 文件中的 clientIP 字段
 
-        模式二：百度搜索  目标地区的IP如：广州IP，任意 选，然后在 写入 UserInfo.json 文件中的 clientIP 字段
+        模式二：百度搜索  目标地区的IP如：广州IP，任意 选，然后在 写入 user_info.json 文件中的 clientIP 字段
         :return: IP
         """
         getIp_resp = App.handler_request(self.s, "post", App.urls["getIp"], {})
@@ -228,7 +268,7 @@ class App():
         """
         params = {
             "key": "c222383ff12d31b556c3ad6145bb95f4",
-            "location": self.userInfo["addressLocation"],
+            "location": str(self.longitude) + "," + str(self.latitude),
             "extensions": "all",
             "s": "rsx",
             "platform": "WXJS",
@@ -242,7 +282,11 @@ class App():
         if GetLocationInfo_resp["info"] == "OK" and GetLocationInfo_resp["infocode"] == "10000":
             # self.checkIn_info["city"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
             # self.checkIn_info["province"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["province"]
-            return GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
+            App.App_Log("GetLocationInfo_resp : " + json.dumps(GetLocationInfo_resp))
+            adcode = GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
+            if DEBUG:
+                App.App_Log("adcode : " + str(adcode))
+            return adcode
 
     def getTraineeId(self) -> str:
         """
@@ -268,9 +312,9 @@ class App():
         self.checkIn_info["unionId"] = self.unionId
         self.checkIn_info["traineeId"] = self.traineeId
         self.checkIn_info["adcode"] = self.GetAdcode()
-        self.checkIn_info["lat"] = self.userInfo["addressLocation"].split(",")[1]
-        self.checkIn_info["lng"] = self.userInfo["addressLocation"].split(",")[0]
-        self.checkIn_info["address"] = self.userInfo["addressName"]
+        self.checkIn_info["lat"] = str(self.latitude)
+        self.checkIn_info["lng"] = str(self.longitude)
+        self.checkIn_info["address"] = self.street
         self.checkIn_info["deviceName"] = self.model
         self.checkIn_info["punchInStatus"] = "0"
         self.checkIn_info["clockStatus"] = "2"
@@ -400,9 +444,9 @@ def NoStatCheckIn(UserConfPath, mode) -> bool:
             for _, userInfo in enumerate(App.common):
                 if DEBUG:
                     App.print_user_base_info(_, userInfo, mode)
-                if userInfo["phoneInfo"]["model"] == "" and userInfo["phoneInfo"]["brand"] == "" and \
+                if userInfo["phoneInfo"]["model"]  and userInfo["phoneInfo"]["brand"]  and \
                         userInfo["phoneInfo"][
-                            "platform"] == "":
+                            "platform"]:
                     app = App(userInfo, info["phoneInfo"], userInfo["CheckInNotice"])
                 else:
                     app = App(userInfo, phoneInfo=None, sign=userInfo["CheckInNotice"])
@@ -448,6 +492,7 @@ def StatCheckIn(UserConfPath, mode="r+") -> bool:
                     app = App(userInfo, phoneInfo=None, sign=userInfo["CheckInNotice"])
                 app.getIp()
                 app.Login()
+                app.AutoGetCheckInLocation()
                 app.getTraineeId()
                 signInflag, date, writeable = app.GetPlan_detail()
                 # (bool, "2022")
@@ -480,7 +525,7 @@ def main_handler(event=None, context=None):
         """
         sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
-    # random_sec = 2
+    random_sec = 2
     App.App_Log("是否打印  日志信息    ：" + str("是" if DEBUG else "否"))
     App.App_Log("是否打印 请求日志信息 ：" + str("是" if REQ_DEBUG else "否"))
     if event:
@@ -540,6 +585,8 @@ def main_handler(event=None, context=None):
         return StatCheckIn(UserConfPath, "r+")
 
 
-# 本地测试专用 放开 以下注释 可在 win 以及Linux 终端上进行测试
+# 支持 win/Linux 终端 进行本地测试，支持直接copy本代码 到云函数进行部署，
+# 无需更改代码，只需要在 user_info.json 中填入个人相关信息即可
+
 if __name__ == '__main__':
     main_handler()

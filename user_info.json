@@ -1,26 +1,25 @@
 {
-
-    "users":[
-      {
-        "user": "13800138000",
-        "pwd": "123456",
-        "netType": "WIFI",
-        "clientIP": "192.168.1.1",
-        "addressLocation": "116.404147,39.914949",
-        "addressName": "xxx港xxx栋",
-        "phoneInfo": {
-            "model": "",
-            "brand": "",
-            "platform": "",
-            "system": ""
-        },
-        "bemfa":"f5d361a74585...45856"
-      }
-    ],
+  "users": [
+    {
+      "user": "1380013800",
+      "pwd": "123456",
+      "netType": "WIFI",
+      "clientIP": "218.20.44.240",
+      "phoneInfo": {
+        "model": "",
+        "brand": "",
+        "platform": "",
+        "system": ""
+      },
+      "bemfa": "16a6ce17703......1a7a267dd9",
+      "CheckInNotice": false,
+      "signInture": 0
+    }
+  ],
   "phoneInfo": {
-            "model": "MI MAX 2",
-            "brand": "Xiaomi",
-            "platform": "android",
-            "system": "Android 7.1.1"
-        }
+    "model": "MI MAX 2",
+    "brand": "Xiaomi",
+    "platform": "android",
+    "system": "Android 7.1.1"
+  }
 }
