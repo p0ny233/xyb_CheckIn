@@ -282,7 +282,7 @@ class App():
         if GetLocationInfo_resp["info"] == "OK" and GetLocationInfo_resp["infocode"] == "10000":
             # self.checkIn_info["city"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
             # self.checkIn_info["province"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["province"]
-            App.App_Log("GetLocationInfo_resp : " + json.dumps(GetLocationInfo_resp))
+            # App.App_Log("GetLocationInfo_resp : " + json.dumps(GetLocationInfo_resp))
             adcode = GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
             if DEBUG:
                 App.App_Log("adcode : " + str(adcode))
@@ -444,7 +444,7 @@ def NoStatCheckIn(UserConfPath, mode) -> bool:
             for _, userInfo in enumerate(App.common):
                 if DEBUG:
                     App.print_user_base_info(_, userInfo, mode)
-                if userInfo["phoneInfo"]["model"]  and userInfo["phoneInfo"]["brand"]  and \
+                if userInfo["phoneInfo"]["model"] and userInfo["phoneInfo"]["brand"] and \
                         userInfo["phoneInfo"][
                             "platform"]:
                     app = App(userInfo, info["phoneInfo"], userInfo["CheckInNotice"])
@@ -453,6 +453,7 @@ def NoStatCheckIn(UserConfPath, mode) -> bool:
 
                 app.getIp()
                 app.Login()
+                app.AutoGetCheckInLocation()
                 app.getTraineeId()
                 return app.GetPlan_detail()[0]
 
@@ -513,7 +514,8 @@ def StatCheckIn(UserConfPath, mode="r+") -> bool:
 
 # 腾讯云函数专用
 def main_handler(event=None, context=None):
-    random_sec = random.randint(10, 400)
+    App.App_Log(event)
+
     if event:
         """
         云函数
@@ -529,7 +531,8 @@ def main_handler(event=None, context=None):
     App.App_Log("是否打印  日志信息    ：" + str("是" if DEBUG else "否"))
     App.App_Log("是否打印 请求日志信息 ：" + str("是" if REQ_DEBUG else "否"))
     if event:
-        print("倒计时{}秒！".format(random_sec), end="", flush=True)
+        random_sec = random.randint(10, 400)
+        print("倒计时{}秒！".format(random_sec))
         time.sleep(random_sec)
     else:
         for sec in range(random_sec, 0, -1):
@@ -548,7 +551,7 @@ def main_handler(event=None, context=None):
                 | - src
                     | - index,py
                     | - user_info.json
-    
+
     使用 os.getcwd()
         弊端：
             如果：在 src 路径下 执行 python3 index.py , 
@@ -558,7 +561,7 @@ def main_handler(event=None, context=None):
                     那么 os.getcwd() 
                     回显 /usr/local/var/functions/ap-guangzhou/
             此时 若使用 os.getcwd() 方式进行 获取 user_info.json 文件就会提示找不到
-            
+
         推荐使用 os.path.dirname(os.path.realpath(__file__))  来拼凑路径
     """
     UserConfPath = os.path.dirname(
