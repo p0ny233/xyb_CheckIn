@@ -30,21 +30,19 @@ class App():
         # "getOpenId": "https://xcx.xybsyw.com/common/getOpenId.action",
         "GetIsUnionId": "https://xcx.xybsyw.com/common/GetIsUnionId.action",
         "getCityId": "https://xcx.xybsyw.com/common/loadLocation!getCityId.action",
-        "Duration": "https://app.xybsyw.com/behavior/Duration.action",  # 心跳
+        # "Duration": "https://app.xybsyw.com/behavior/Duration.action",  # 心跳
         # "verify": "https://xcx.xybsyw.com/sphere/sphereInfo!verify.action",
         "get_traineeId": "https://xcx.xybsyw.com/student/clock/GetPlan!getDefault.action",
         "GetPlan_detail": "https://xcx.xybsyw.com/student/clock/GetPlan!detail.action",
         "login": "https://xcx.xybsyw.com/login/login.action",
         # "checkAccount": "https://xcx.xybsyw.com/login/checkAccount.action",
-        # "checkIn": "https://xcx.xybsyw.com/student/clock/Post.action",
-        "checkIn": "https://xcx.xybsyw.com/student/clock/Post!autoClock.action",
+        "checkIn": "https://xcx.xybsyw.com/student/clock/Post.action",
         "getIpAddr": "https://sp1.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=ipv4&co=&resource_id=5809&t=" + str(
             int(time.time() * 1000)) + "&ie=utf8&oe=gbk&cb=op_aladdin_callback&format=json&tn=baidu",
         "getProjectList": "https://xcx.xybsyw.com/student/progress/ProjectList.action",
         "LoadProjects": "https://xcx.xybsyw.com/student/practiceplan/independent/LoadProjects.action",
-        "LoadSummaryPostById": "https://xcx.xybsyw.com/student/practiceplan/independent/LoadSummaryPostById.action",
-        "saveEpidemicSituation": "https://xcx.xybsyw.com/student/clock/saveEpidemicSituation.action",
-        "LoadAccountInfo": "https://xcx.xybsyw.com/account/LoadAccountInfo.action",
+        "LoadSummaryPostById": "https://xcx.xybsyw.com/student/practiceplan/independent/LoadSummaryPostById.action"
+
     }
 
     @classmethod
@@ -59,10 +57,6 @@ class App():
             if "秒" in param:
                 print("\rxyb_TAG \t" + param, end="", flush=True)
                 return None
-            if r"\u" in param:
-                print("xyb_TAG \t" + param.encode("utf-8").decode("unicode_escape"), flush=True)
-                return None
-
             print("xyb_TAG \t" + param, flush=True)
 
     @classmethod
@@ -95,27 +89,15 @@ class App():
         elif "restapi.amap" in url:
             reqObj.headers["Host"] = "restapi.amap.com"
 
-        RESP = None
-
         if req_method == "get":
             if REQ_DEBUG:
                 App.App_Log(url, reqObj.headers, data)
-
-            RESP = reqObj.get(url, params=data).json()
-            if REQ_DEBUG:
-                # App.App_Log(url, reqObj.headers, data)
-                App.App_Log(RESP)
-            return RESP
+            return reqObj.get(url, params=data).json()
 
         if req_method == "post":
             if REQ_DEBUG:
                 App.App_Log(url, reqObj.headers, data)
-
-            RESP = reqObj.post(url, data=data).json()
-            if REQ_DEBUG:
-                # App.App_Log(url, reqObj.headers, data)
-                App.App_Log(RESP)
-            return RESP
+            return reqObj.post(url, data=data).json()
 
     @classmethod
     def getIpAddr(cls, ip: None) -> str:
@@ -190,7 +172,9 @@ class App():
 
         self.sign = sign
 
-        self.s.headers["User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800153F) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
+        self.s.headers[
+            "User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800103B) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
+
     def AutoGetCheckInLocation(self) -> None:
         """
         修复 手动获取签到坐标位置不精确 问题
@@ -278,7 +262,7 @@ class App():
         else:
             raise Exception("Protocol is Failed !\n")
 
-    def GetAdcode(self) -> None:
+    def GetAdcode(self) -> str:
         """
         :return: 坐标信息
         """
@@ -296,10 +280,13 @@ class App():
                                                    params)
 
         if GetLocationInfo_resp["info"] == "OK" and GetLocationInfo_resp["infocode"] == "10000":
-            self.adcode = GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
-            self.city = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
-            self.province = GetLocationInfo_resp["regeocode"]["addressComponent"]["province"]
-            self.country = GetLocationInfo_resp["regeocode"]["addressComponent"]["country"]
+            # self.checkIn_info["city"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["city"]
+            # self.checkIn_info["province"] = GetLocationInfo_resp["regeocode"]["addressComponent"]["province"]
+            # App.App_Log("GetLocationInfo_resp : " + json.dumps(GetLocationInfo_resp))
+            adcode = GetLocationInfo_resp["regeocode"]["addressComponent"]["adcode"]
+            if DEBUG:
+                App.App_Log("adcode : " + str(adcode))
+            return adcode
 
     def getTraineeId(self) -> str:
         """
@@ -312,50 +299,6 @@ class App():
             # App.App_Log("self.traineeId >> \t" + self.traineeId)
         else:
             raise Exception("获取实习任务ID失败")
-
-    def Duration(self):
-        data = {
-            "fromType": "",
-            "urlParamsStr": "",
-            "app": "wx_student",
-            "appVersion": "1.5.75",
-            "userId": self.userId,
-            "deviceToken": self.openId,
-            "userName": self.userInfo["username"],
-            "country": self.country,
-            "province": self.province,
-            "city": self.city,
-            "deviceModel": "MI MAX 2",
-            "operatingSystem": "android",
-            "operatingSystemVersion": "7.1.1",
-            "screenHeight": "699",
-            "screenWidth": "393",
-            "eventTime": str(time.time()),
-            "pageId": "27",
-            "pageName": "成长-签到",
-            "preferName": "机会",
-            "stayTime": "none",
-            "eventType": "click",
-            "eventName": "clickSignEvent",
-            "clientIP": self.userInfo["clientIP"],
-            "reportSrc": "2",
-            "login": "1",
-            "netType": "WIFI",
-            "itemID": "none",
-            "itemType": "其他",
-        }
-
-        App.handler_request(self.s, "post", App.urls["Duration"], data=data)
-
-    def saveEpidemicSituation(self):
-
-        data = {
-            "healthCodeStatus": "",
-            "locationRiskLevel": "0",
-            "healthCodeImg": "",
-        }
-
-        App.handler_request(self.s, "post", App.urls["saveEpidemicSituation"], data=data)
 
     def handler_checkIn_(self) -> tuple:
         """
@@ -373,19 +316,11 @@ class App():
         self.checkIn_info["lng"] = str(self.longitude)
         self.checkIn_info["address"] = self.street
         self.checkIn_info["deviceName"] = self.model
-        self.checkIn_info["punchInStatus"] = "1"
+        self.checkIn_info["punchInStatus"] = "0"
         self.checkIn_info["clockStatus"] = "2"
-        self.checkIn_info["imgUrl"] = ""
-        self.checkIn_info["reason"] = ""
-
-        self.saveEpidemicSituation()
-
-        # self.s.headers["v"] = "1.7.14"
-
-        self.Duration()
 
         checkIn_resp = App.handler_request(self.s, "post", App.urls["checkIn"], data=self.checkIn_info)
-        if checkIn_resp["code"] == "200" and checkIn_resp["msg"] == "操作成功" and checkIn_resp["data"]["successCount"] == 1:
+        if checkIn_resp["code"] == "200" and checkIn_resp["msg"] == "success":
             Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"],
                                                    {"traineeId": self.traineeId})
 
@@ -464,15 +399,6 @@ class App():
         self.s.headers["cookie"] = "JSESSIONID=" + login_resp["data"]["sessionId"]
         self.userId = login_resp["data"]["loginerId"]
 
-    def GetUserName(self):
-        """
-        协议流程
-        :return:
-        """
-        GetUserName_RESP = App.handler_request(self.s,"post", App.urls["LoadAccountInfo"],data={})
-        if GetUserName_RESP["code"] == "200" and GetUserName_RESP["msg"] == "操作成功":
-            self.userInfo["username"] = GetUserName_RESP["data"]["loginer"]
-
     def destory(self):
         """
         完成任务自毁
@@ -527,7 +453,6 @@ def NoStatCheckIn(UserConfPath, mode) -> bool:
 
                 app.getIp()
                 app.Login()
-                app.GetUserName()
                 app.AutoGetCheckInLocation()
                 app.getTraineeId()
                 return app.GetPlan_detail()[0]
@@ -568,7 +493,6 @@ def StatCheckIn(UserConfPath, mode="r+") -> bool:
                     app = App(userInfo, phoneInfo=None, sign=userInfo["CheckInNotice"])
                 app.getIp()
                 app.Login()
-                app.GetUserName()
                 app.AutoGetCheckInLocation()
                 app.getTraineeId()
                 signInflag, date, writeable = app.GetPlan_detail()
@@ -590,7 +514,8 @@ def StatCheckIn(UserConfPath, mode="r+") -> bool:
 
 # 腾讯云函数专用
 def main_handler(event=None, context=None):
-    random_sec = random.randint(10, 400)
+    App.App_Log(event)
+
     if event:
         """
         云函数
@@ -606,7 +531,8 @@ def main_handler(event=None, context=None):
     App.App_Log("是否打印  日志信息    ：" + str("是" if DEBUG else "否"))
     App.App_Log("是否打印 请求日志信息 ：" + str("是" if REQ_DEBUG else "否"))
     if event:
-        print("倒计时{}秒！".format(random_sec), end="", flush=True)
+        random_sec = random.randint(10, 400)
+        print("倒计时{}秒！".format(random_sec))
         time.sleep(random_sec)
     else:
         for sec in range(random_sec, 0, -1):
@@ -625,7 +551,7 @@ def main_handler(event=None, context=None):
                 | - src
                     | - index,py
                     | - user_info.json
-    
+
     使用 os.getcwd()
         弊端：
             如果：在 src 路径下 执行 python3 index.py , 
@@ -635,7 +561,7 @@ def main_handler(event=None, context=None):
                     那么 os.getcwd() 
                     回显 /usr/local/var/functions/ap-guangzhou/
             此时 若使用 os.getcwd() 方式进行 获取 user_info.json 文件就会提示找不到
-            
+
         推荐使用 os.path.dirname(os.path.realpath(__file__))  来拼凑路径
     """
     UserConfPath = os.path.dirname(
@@ -664,5 +590,6 @@ def main_handler(event=None, context=None):
 
 # 支持 win/Linux 终端 进行本地测试，支持直接copy本代码 到云函数进行部署，
 # 无需更改代码，只需要在 user_info.json 中填入个人相关信息即可
+
 if __name__ == '__main__':
     main_handler()
