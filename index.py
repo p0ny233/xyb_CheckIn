@@ -529,6 +529,7 @@ def NoStatCheckIn(UserConfPath, mode) -> bool:
                 app.Login()
                 app.GetUserName()
                 app.AutoGetCheckInLocation()
+                app.GetAdcode()
                 app.getTraineeId()
                 return app.GetPlan_detail()[0]
 
@@ -570,6 +571,7 @@ def StatCheckIn(UserConfPath, mode="r+") -> bool:
                 app.Login()
                 app.GetUserName()
                 app.AutoGetCheckInLocation()
+                app.GetAdcode()
                 app.getTraineeId()
                 signInflag, date, writeable = app.GetPlan_detail()
                 # (bool, "2022")
