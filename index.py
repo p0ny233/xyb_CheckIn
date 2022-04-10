@@ -604,7 +604,7 @@ def main_handler(event=None, context=None):
         """
         sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
-    random_sec = 2
+        random_sec = 2
     App.App_Log("是否打印  日志信息    ：" + str("是" if DEBUG else "否"))
     App.App_Log("是否打印 请求日志信息 ：" + str("是" if REQ_DEBUG else "否"))
     if event:
