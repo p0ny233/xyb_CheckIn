@@ -190,7 +190,9 @@ class App():
 
         self.sign = sign
 
-        self.s.headers["User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800153F) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
+        self.s.headers[
+            "User-Agent"] = "Mozilla/5.0 (Linux; " + self.system + "; " + self.model + " Build/NMF26F; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.99 XWEB/3195 MMWEBSDK/20211001 Mobile Safari/537.36 MMWEBID/8710 MicroMessenger/8.0.16.2040(0x2800153F) Process/appbrand0 WeChat/arm64 Weixin NetType/" + self.netType + " Language/zh_CN ABI/arm64 MiniProgramEnv/android"
+
     def AutoGetCheckInLocation(self) -> None:
         """
         修复 手动获取签到坐标位置不精确 问题
@@ -237,7 +239,6 @@ class App():
             1. 手机先切换成 按照之前正常打卡时的网络环境
             2. 浏览器网址：https://cip.cc.com/
             3. 将 您的本机IP地址：xxx.xxx.xxx.xx，中的 xxx.xxx.xxx.xx  写入 user_info.json 文件中的 clientIP 字段
-
         模式二：百度搜索  目标地区的IP如：广州IP，任意 选，然后在 写入 user_info.json 文件中的 clientIP 字段
         :return: IP
         """
@@ -385,7 +386,8 @@ class App():
         self.Duration()
 
         checkIn_resp = App.handler_request(self.s, "post", App.urls["checkIn"], data=self.checkIn_info)
-        if checkIn_resp["code"] == "200" and checkIn_resp["msg"] == "操作成功" and checkIn_resp["data"]["successCount"] == 1:
+        if checkIn_resp["code"] == "200" and checkIn_resp["msg"] == "操作成功" and checkIn_resp["data"][
+            "successCount"] == 1:
             Plan_detail_resp = App.handler_request(self.s, "post", App.urls["GetPlan_detail"],
                                                    {"traineeId": self.traineeId})
 
@@ -469,7 +471,7 @@ class App():
         协议流程
         :return:
         """
-        GetUserName_RESP = App.handler_request(self.s,"post", App.urls["LoadAccountInfo"],data={})
+        GetUserName_RESP = App.handler_request(self.s, "post", App.urls["LoadAccountInfo"], data={})
         if GetUserName_RESP["code"] == "200" and GetUserName_RESP["msg"] == "操作成功":
             self.userInfo["username"] = GetUserName_RESP["data"]["loginer"]
 
@@ -627,7 +629,7 @@ def main_handler(event=None, context=None):
                 | - src
                     | - index,py
                     | - user_info.json
-    
+
     使用 os.getcwd()
         弊端：
             如果：在 src 路径下 执行 python3 index.py , 
@@ -637,7 +639,7 @@ def main_handler(event=None, context=None):
                     那么 os.getcwd() 
                     回显 /usr/local/var/functions/ap-guangzhou/
             此时 若使用 os.getcwd() 方式进行 获取 user_info.json 文件就会提示找不到
-            
+
         推荐使用 os.path.dirname(os.path.realpath(__file__))  来拼凑路径
     """
     UserConfPath = os.path.dirname(
